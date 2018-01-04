@@ -31,3 +31,5 @@ python pixiv.py -e your-email -p your-password
 ```
 python pixiv.py -e your-email -p your-password -i img-id
 ```
+
+`your-email`和`your-password`是你的P站账号的邮箱和密码
