@@ -99,7 +99,7 @@ def getImg(pid):
                     img.save(filename)
                     get.append(pid + '_p' + str(i))
                     print "[+] " + pid + '_p' + str(i) + " save."
-                    i += 1
+                i += 1
     except:
         getImg(pid)
 
