@@ -6,6 +6,8 @@ import re
 import os
 import threading
 import argparse
+from cStringIO import StringIO
+from PIL import Image
 
 s = requests.session()
 proxies = {
@@ -49,7 +51,7 @@ def getImg(pid):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
             "Referer": mediumUrl
         }
-        r = s.get(mediumUrl, headers = header, proxies = proxies)
+        r = s.get(mediumUrl, headers = header, proxies = proxies, stream = True)
         pattern = re.compile('<img src="https://i.pximg.net/c/600x600/img-master/(.*?)_master1200.jpg" ', re.S)
         imgPath = re.search(pattern, r.content).group(1)
         pattern = re.compile('<span>(\d*)</span>', re.S)
@@ -67,16 +69,14 @@ def getImg(pid):
             filename = 'pixiv/' + pid + ".gif"
         if r.status_code == 502:
             raise Exception("HTTP 502")
-        data = r.content
-        f = open(filename, 'wb')
-        f.write(data)
-        f.close()
+        img = Image.open(StringIO(r.content))
+        img.save(filename)
         if mangaCount:
             mangaCount = int(mangaCount.group(1))
             i = 1
             while i < mangaCount:
                 imgUrl = "https://i.pximg.net/img-original/" + imgPath[0:-1] + str(i) + ".jpg"
-                r = s.get(imgUrl, headers = header, proxies = proxies)
+                r = s.get(imgUrl, headers = header, proxies = proxies, stream = True)
                 filename = 'pixiv/' + pid + '_p' + str(i) + ".jpg"
                 if r.status_code == 404:
                     imgUrl = "https://i.pximg.net/img-original/" + imgPath[0:-1] + str(i) + ".png"
@@ -88,10 +88,8 @@ def getImg(pid):
                     filename = 'pixiv/' + pid + '_p' + str(i) + ".gif"
                 if r.status_code == 502:
                     raise Exception("HTTP 502")
-                data = r.content
-                f = open(filename, 'wb')
-                f.write(data)
-                f.close()
+                img = Image.open(StringIO(r.content))
+                img.save(filename)
                 i += 1
     except:
         pass
