@@ -95,11 +95,11 @@ def getImg(pid):
                         filename = 'pixiv/' + pid + '_p' + str(i) + ".gif"
                     if r.status_code == 502:
                         raise Exception("HTTP 502")
-                    i += 1
                     img = Image.open(StringIO(r.content))
                     img.save(filename)
                     get.append(pid + '_p' + str(i))
                     print "[+] " + pid + '_p' + str(i) + " save."
+                    i += 1
     except:
         getImg(pid)
 
