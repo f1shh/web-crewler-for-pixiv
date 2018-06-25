@@ -55,51 +55,32 @@ def getImg(pid):
             "Referer": mediumUrl
         }
         r = s.get(mediumUrl, headers = header, proxies = proxies, stream = True)
-        pattern = re.compile('<img src="https://i.pximg.net/c/600x600/img-master/(.*?)_master1200.jpg" ', re.S)
-        imgPath = re.search(pattern, r.content).group(1)
-        pattern = re.compile('<span>(\d*)</span>', re.S)
-        mangaCount = re.search(pattern, r.content)
+        pattern = re.compile('"original":"(.*?)"', re.S)
+        imgPath = re.search(pattern, r.content).group(1).replace('\\', '')
         if pid not in get:
-            imgUrl = "https://i.pximg.net/img-original/" + imgPath + ".jpg"
-            r = s.get(imgUrl, headers = header, proxies = proxies)
-            filename = 'pixiv/' + pid + ".jpg"
-            if r.status_code == 404:
-                imgUrl = "https://i.pximg.net/img-original/" + imgPath + ".png"
-                r = s.get(imgUrl, headers = header, proxies = proxies)
-                filename = 'pixiv/' + pid + ".png"
-            if r.status_code == 404:
-                imgUrl = "https://i.pximg.net/img-original/" + imgPath + ".gif"
-                r = s.get(imgUrl, headers = header, proxies = proxies)
-                filename = 'pixiv/' + pid + ".gif"
-            if r.status_code == 502:
-                raise Exception("HTTP 502")
+            r = s.get(imgPath, headers = header, proxies = proxies)
+            filename = 'pixiv/' + imgPath.split('/')[-1]
             img = Image.open(StringIO(r.content))
             img.save(filename)
-            get.append(pid)
-            print "[+] " + pid + " save."
-        if mangaCount:
-            mangaCount = int(mangaCount.group(1))
-            i = 1
-            while i < mangaCount:
-                if pid + '_p' + str(i) not in get:
-                    imgUrl = "https://i.pximg.net/img-original/" + imgPath[0:-1] + str(i) + ".jpg"
-                    r = s.get(imgUrl, headers = header, proxies = proxies, stream = True)
-                    filename = 'pixiv/' + pid + '_p' + str(i) + ".jpg"
-                    if r.status_code == 404:
-                        imgUrl = "https://i.pximg.net/img-original/" + imgPath[0:-1] + str(i) + ".png"
-                        r = s.get(imgUrl, headers = header, proxies = proxies)
-                        filename = 'pixiv/' + pid + '_p' + str(i) + ".png"
-                    if r.status_code == 404:
-                        imgUrl = "https://i.pximg.net/img-original/" + imgPath[0:-1] + str(i) + ".gif"
-                        r = s.get(imgUrl, headers = header, proxies = proxies)
-                        filename = 'pixiv/' + pid + '_p' + str(i) + ".gif"
-                    if r.status_code == 502:
-                        raise Exception("HTTP 502")
-                    img = Image.open(StringIO(r.content))
-                    img.save(filename)
-                    get.append(pid + '_p' + str(i))
-                    print "[+] " + pid + '_p' + str(i) + " save."
+            get.append(imgPath.split('/')[-1])
+            print "[+] " + imgPath.split('/')[-1] + " saved."
+        i = 1
+        imgPath = imgPath.replace('p0', 'p' + str(i))
+        r = s.get(imgPath, headers = header, proxies = proxies)
+        while r.status_code == 200:
+            if imgPath.split('/')[-1] not in get:
+                filename = 'pixiv/' + imgPath.split('/')[-1]
+                img = Image.open(StringIO(r.content))
+                img.save(filename)
+                get.append(imgPath.split('/')[-1])
+                print "[+] " + imgPath.split('/')[-1] + " saved."
                 i += 1
+                imgPath = imgPath.replace('p' + str(i - 1), 'p' + str(i))
+                r = s.get(imgPath, headers = header, proxies = proxies)
+            else:
+                i += 1
+                imgPath = imgPath.replace('p' + str(i - 1), 'p' + str(i))
+                r = s.get(imgPath, headers = header, proxies = proxies)
     except:
         getImg(pid)
 
@@ -112,6 +93,38 @@ def mkdir(path):
     else:
         return False
 
+# 获取列表的第二个元素
+def takeSecond(elem):
+    return elem[1]
+
+#搜索图片
+def search(keyword, count):
+    pattern = re.compile('<input type="hidden"id="js-mount-point-search-result-list"data-items="(.*?)"', re.S)
+    data = ''
+    for i in xrange(1, 11):
+        searchUrl = 'https://www.pixiv.net/search.php'
+        params = {'s_mode': 's_tag', 'word': keyword, 'p': str(i)}
+        r = s.get(searchUrl, params = params, headers = header, proxies = proxies)
+        data += re.search(pattern, r.content).group(1)
+    pattern = re.compile("&quot;illustId&quot;:&quot;(.*?)&quot;,.*?&quot;bookmarkCount&quot;:(.*?),", re.S)
+    imgList = re.finditer(pattern, data)
+    imgDatas = []
+    for img in imgList:
+        imgData = (img.group(1), int(img.group(2)))
+        imgDatas.append(imgData)
+    imgDatas.sort(key = takeSecond, reverse = True)
+    pids = []
+    ts = []
+    count = count if count <= len(imgDatas) else len(imgDatas)
+    for i in xrange(count if count <= 400 else 400):
+        pids.append(imgDatas[i][0])
+    for pid in pids:
+        t = threading.Thread(target = getImg, args = (pid, ))
+        ts.append(t)
+        t.start()
+    for t in ts:
+        t.join()
+
 #主函数
 def main():
     start = time.time()
@@ -120,11 +133,15 @@ def main():
     parser.add_argument("-e", "--email", type = str)
     parser.add_argument("-p", "--password", type = str)
     parser.add_argument("-i", "--id", type = str ,nargs = "?", default = "")
+    parser.add_argument("-k", "--key", type = str ,nargs = "?", default = "")
+    parser.add_argument("-c", "--count", type = int ,nargs = "?", default = 10)
     arg = parser.parse_args()
     login(arg.email, arg.password)
     mkdir('pixiv')
     if arg.id != "":
         getImg(arg.id)
+    elif arg.key != "":
+        search(arg.key, arg.count)
     else:
         pids = getPids()
         for pid in pids:

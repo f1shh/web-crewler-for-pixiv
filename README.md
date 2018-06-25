@@ -26,10 +26,20 @@ proxies = {
 python pixiv.py -e your-email -p your-password
 ```
 
-指定图片id，则爬指定图片
+`-i`指定图片id，则爬指定图片
 
 ```
 python pixiv.py -e your-email -p your-password -i img-id
 ```
 
+`-k`指定关键词，可以搜索相关图片并按照like数排序下载，可以用-c指定下载前几张(默认前10张，最多前400张)
+
+```
+python pixiv.py -e your-email -p your-password -k "fate 5000"
+python pixiv.py -e your-email -p your-password -k "fate 5000" -c 20
+```
+
+关键词后面加上数字(1000、5000、10000、20000等)可以筛选出like数大于等于这个数字的图片
+
 `your-email`和`your-password`是你的P站账号的邮箱和密码
+
