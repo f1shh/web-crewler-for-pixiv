@@ -7,6 +7,7 @@ import os
 import threading
 import argparse
 import time
+import sys
 from cStringIO import StringIO
 from PIL import Image
 
@@ -57,7 +58,7 @@ def getImg(pid):
         r = s.get(mediumUrl, headers = header, proxies = proxies, stream = True)
         pattern = re.compile('"original":"(.*?)"', re.S)
         imgPath = re.search(pattern, r.content).group(1).replace('\\', '')
-        if pid not in get:
+        if imgPath.split('/')[-1] not in get:
             r = s.get(imgPath, headers = header, proxies = proxies)
             filename = 'pixiv/' + imgPath.split('/')[-1]
             img = Image.open(StringIO(r.content))
@@ -141,6 +142,7 @@ def main():
     if arg.id != "":
         getImg(arg.id)
     elif arg.key != "":
+        arg.key = arg.key.decode(sys.stdin.encoding).encode('utf-8')
         search(arg.key, arg.count)
     else:
         pids = getPids()
